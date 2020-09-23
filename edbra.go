@@ -19,6 +19,11 @@ import (
 	"github.com/edgelesssys/ertgolib/erthost"
 )
 
+type certQuoteResp struct {
+	Cert  string
+	Quote []byte
+}
+
 // GetCertificate gets the TLS certificate from the EDB server in PEM format. It performs remote attestation
 // to verify the certificate. A config file must be provided that contains the attestation metadata.
 func GetCertificate(host, configFilename string) (string, error) {
@@ -53,35 +58,31 @@ func GetManifestSignature(host, certificate string) (string, error) {
 }
 
 func getCertificate(host string, config []byte, verifyRemoteReport func([]byte) (ert.Report, error)) (string, error) {
-	// Using root as ServerName lets EDB use the root certificate for this connection.
+	//todo figure out what to do with the line below, ServerName root
 	resp, err := httpGet(&tls.Config{ServerName: "root", InsecureSkipVerify: true}, host, "quote")
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
-
-	certRaw := resp.TLS.PeerCertificates[0].Raw
+	cert, quote, err := httpReadCertQuote(resp)
 
 	if verifyRemoteReport != nil {
-		reportBytes, err := httpRead(resp)
+
+		report, err := verifyRemoteReport(quote)
 		if err != nil {
 			return "", err
 		}
-		report, err := verifyRemoteReport(reportBytes)
-		if err != nil {
-			return "", err
-		}
+		//todo how to convert cert in PEM(string) to raw
+
+		block, _ := pem.Decode([]byte(cert))
+		certRaw := block.Bytes
+
 		if err := verifyReport(report, certRaw, config); err != nil {
 			return "", err
 		}
 	}
 
-	cert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certRaw})
-	if len(cert) <= 0 {
-		return "", errors.New("pem encode failed")
-	}
-
-	return string(cert), nil
+	return cert, nil
 }
 
 func verifyReport(report ert.Report, cert []byte, config []byte) error {
@@ -154,4 +155,20 @@ func httpRead(resp *http.Response) ([]byte, error) {
 		return nil, errors.New(resp.Status + ": " + string(body))
 	}
 	return body, nil
+}
+
+func httpReadCertQuote(resp *http.Response) (string, []byte, error) {
+	body, err := ioutil.ReadAll(resp.Body)
+	var certquote certQuoteResp
+	if err != nil {
+		return "", nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", nil, errors.New(resp.Status + ": " + string(body))
+	}
+	err = json.Unmarshal(body, certquote)
+	if err != nil {
+		return "", nil, err
+	}
+	return certquote.Cert, certquote.Quote, nil
 }
