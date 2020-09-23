@@ -4,8 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-
-	"github.com/edgelesssys/edb/edbra"
 )
 
 func main() {
