@@ -21,16 +21,16 @@ func main() {
 	var err error
 	if *skipQuote {
 		fmt.Println("Warning: skipping quote verification")
-		cert, err = edbra.InsecureGetCertificate(*host)
+		cert, err = era.InsecureGetCertificate(*host)
 	} else {
-		cert, err = edbra.GetCertificate(*host, *configFilename)
+		cert, err = era.GetCertificate(*host, *configFilename)
 	}
 
 	if err != nil {
 		panic(err)
 	}
 
-	sig, err := edbra.GetManifestSignature(*host, cert)
+	sig, err := era.GetManifestSignature(*host, cert)
 	if err != nil {
 		fmt.Println("GetManifestSignature failed:", err)
 	} else if len(sig) > 0 {
