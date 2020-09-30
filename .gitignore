@@ -1,0 +1,5 @@
+config.json
+.vscode/launch.json
+cmd/cmd
+cmd/out
+.config.json.swp
