@@ -166,7 +166,7 @@ func httpReadCertQuote(resp *http.Response) (string, []byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return "", nil, errors.New(resp.Status + ": " + string(body))
 	}
-	err = json.Unmarshal(body, certquote)
+	err = json.Unmarshal(body, &certquote)
 	if err != nil {
 		return "", nil, err
 	}
