@@ -1,6 +1,7 @@
 package main
 
 import (
+	"edglesssys/era/era"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -28,13 +29,6 @@ func main() {
 
 	if err != nil {
 		panic(err)
-	}
-
-	sig, err := era.GetManifestSignature(*host, cert)
-	if err != nil {
-		fmt.Println("GetManifestSignature failed:", err)
-	} else if len(sig) > 0 {
-		fmt.Printf("Manifest signature: %v\n", sig)
 	}
 
 	if err := ioutil.WriteFile(*out, []byte(cert), 0644); err != nil {
