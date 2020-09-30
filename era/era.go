@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -24,7 +23,7 @@ type certQuoteResp struct {
 	Quote []byte
 }
 
-// GetCertificate gets the TLS certificate from the EDB server in PEM format. It performs remote attestation
+// GetCertificate gets the TLS certificate from the server in PEM format. It performs remote attestation
 // to verify the certificate. A config file must be provided that contains the attestation metadata.
 func GetCertificate(host, configFilename string) (string, error) {
 	config, err := ioutil.ReadFile(configFilename)
@@ -34,37 +33,16 @@ func GetCertificate(host, configFilename string) (string, error) {
 	return getCertificate(host, config, erthost.VerifyRemoteReport)
 }
 
-// InsecureGetCertificate gets the TLS certificate from the EDB server in PEM format, but does not perform remote attestation.
+// InsecureGetCertificate gets the TLS certificate from the server in PEM format, but does not perform remote attestation.
 func InsecureGetCertificate(host string) (string, error) {
 	return getCertificate(host, nil, nil)
 }
 
-// GetManifestSignature gets the manifest signature from the EDB server. The required certificate can be obtained by GetCertificate.
-func GetManifestSignature(host, certificate string) (string, error) {
-	tlsCfg := tls.Config{RootCAs: x509.NewCertPool()}
-	if !tlsCfg.RootCAs.AppendCertsFromPEM([]byte(certificate)) {
-		return "", errors.New("Failed to parse certificate")
-	}
-	resp, err := httpGet(&tlsCfg, host, "signature")
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	body, err := httpRead(resp)
-	if err != nil {
-		return "", err
-	}
-	return string(body), nil
-}
-
 func getCertificate(host string, config []byte, verifyRemoteReport func([]byte) (ert.Report, error)) (string, error) {
-	//todo figure out what to do with the line below, ServerName root
-	resp, err := httpGet(&tls.Config{ServerName: "root", InsecureSkipVerify: true}, host, "quote")
+	cert, quote, err := httpGetCertQuote(&tls.Config{InsecureSkipVerify: true}, host, "quote")
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-	cert, quote, err := httpReadCertQuote(resp)
 
 	if verifyRemoteReport != nil {
 
@@ -140,24 +118,13 @@ func verifyID(expected string, actual []byte, name string) error {
 	return nil
 }
 
-func httpGet(tlsConfig *tls.Config, host, path string) (*http.Response, error) {
+func httpGetCertQuote(tlsConfig *tls.Config, host, path string) (string, []byte, error) {
 	client := http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}}
 	url := url.URL{Scheme: "https", Host: host, Path: path}
-	return client.Get(url.String())
-}
-
-func httpRead(resp *http.Response) ([]byte, error) {
-	body, err := ioutil.ReadAll(resp.Body)
+	resp, err := client.Get(url.String())
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New(resp.Status + ": " + string(body))
-	}
-	return body, nil
-}
-
-func httpReadCertQuote(resp *http.Response) (string, []byte, error) {
 	body, err := ioutil.ReadAll(resp.Body)
 	var certquote certQuoteResp
 	if err != nil {
@@ -170,5 +137,6 @@ func httpReadCertQuote(resp *http.Response) (string, []byte, error) {
 	if err != nil {
 		return "", nil, err
 	}
+	resp.Body.Close()
 	return certquote.Cert, certquote.Quote, nil
 }
