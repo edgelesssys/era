@@ -50,7 +50,6 @@ func getCertificate(host string, config []byte, verifyRemoteReport func([]byte) 
 		if err != nil {
 			return "", err
 		}
-		//todo how to convert cert in PEM(string) to raw
 
 		block, _ := pem.Decode([]byte(cert))
 		certRaw := block.Bytes

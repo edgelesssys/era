@@ -1,19 +1,13 @@
 package era
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
-	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
-	"io"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/edgelesssys/ertgolib/ert"
 	"github.com/stretchr/testify/assert"
@@ -29,15 +23,24 @@ func TestGetCertificate(t *testing.T) {
 `)
 
 	assert := assert.New(t)
-	quote := []byte{2, 3, 4}
+	var quote []byte
+	var cert string
 
 	server, addr, expectedCert := newServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal("/quote", r.RequestURI)
-		w.Write(quote)
+		jsn, err := json.Marshal(certQuoteResp{cert, quote})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		w.Write(jsn)
 	}))
-	defer server.Close()
+	cert = expectedCert
+	block, _ := pem.Decode([]byte(cert))
+	certRaw := block.Bytes
+	hash := sha256.Sum256([]byte(certRaw))
+	quote = hash[:]
 
-	hash := sha256.Sum256(server.Certificate().Raw)
+	defer server.Close()
 
 	// get certificate without quote validation
 	actualCert, err := getCertificate(addr, nil, nil)
@@ -140,34 +143,6 @@ func TestGetCertificate(t *testing.T) {
 	assert.NotNil(err)
 }
 
-func TestGetManifestSignature(t *testing.T) {
-	assert := assert.New(t)
-	const expectedSig = "foo"
-
-	server, addr, cert := newServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal("/signature", r.RequestURI)
-		io.WriteString(w, expectedSig)
-	}))
-	defer server.Close()
-
-	// get signature with valid addr and cert
-	sig, err := GetManifestSignature(addr, cert)
-	assert.Nil(err)
-	assert.Equal(expectedSig, sig)
-
-	// invalid addr
-	_, err = GetManifestSignature("", cert)
-	assert.NotNil(err)
-
-	// invalid certificate
-	_, err = GetManifestSignature(addr, "")
-	assert.NotNil(err)
-
-	// wrong certificate
-	_, err = GetManifestSignature(addr, createCertificate())
-	assert.NotNil(err)
-}
-
 func newServer(handler http.Handler) (server *httptest.Server, addr string, cert string) {
 	s := httptest.NewTLSServer(handler)
 	return s, s.Listener.Addr().String(), toPEM(s.Certificate().Raw)
@@ -179,15 +154,4 @@ func toPEM(certificate []byte) string {
 		panic("EncodeToMemory failed")
 	}
 	return string(result)
-}
-
-func createCertificate() string {
-	template := &x509.Certificate{
-		SerialNumber: &big.Int{},
-		Subject:      pkix.Name{CommonName: "localhost"},
-		NotAfter:     time.Now().Add(time.Hour),
-	}
-	priv, _ := rsa.GenerateKey(rand.Reader, 2048)
-	cert, _ := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
-	return toPEM(cert)
 }
