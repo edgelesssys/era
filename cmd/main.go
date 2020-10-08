@@ -34,4 +34,5 @@ func main() {
 	if err := ioutil.WriteFile(*out, []byte(cert), 0644); err != nil {
 		panic(err)
 	}
+	fmt.Println("SUCCESS, certificate writen to", *out)
 }
