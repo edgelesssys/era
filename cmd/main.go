@@ -1,10 +1,11 @@
 package main
 
 import (
-	"edglesssys/era/era"
 	"flag"
 	"fmt"
 	"io/ioutil"
+
+	"github.com/edgelesssys/era/era"
 )
 
 func main() {

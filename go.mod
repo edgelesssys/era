@@ -1,4 +1,4 @@
-module edglesssys/era
+module github.com/edgelesssys/era
 
 go 1.15
 
