@@ -29,6 +29,10 @@ func main() {
 	}
 
 	if err != nil {
+		if err == era.ErrEmptyQuote {
+			fmt.Println("ERROR: Received an empty quote from host. Is it running in OE Simulation mode?")
+			fmt.Println("For testing purposes, you can pass the parameter '-skip-quote' to skip remote attestation.")
+		}
 		panic(err)
 	}
 
