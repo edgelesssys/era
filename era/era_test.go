@@ -43,12 +43,12 @@ func TestGetCertificate(t *testing.T) {
 	defer server.Close()
 
 	// get certificate without quote validation
-	actualCert, err := getCertificate(addr, nil, nil)
+	actualCerts, err := getCertificate(addr, nil, nil)
 	assert.Nil(err)
-	assert.Equal(expectedCert, actualCert)
+	assert.Equal(expectedCert, actualCerts[0])
 
 	// get certificate with quote validation
-	actualCert, err = getCertificate(addr, config,
+	actualCerts, err = getCertificate(addr, config,
 		func(reportBytes []byte) (ert.Report, error) {
 			assert.Equal(quote, reportBytes)
 			return ert.Report{
@@ -59,10 +59,10 @@ func TestGetCertificate(t *testing.T) {
 			}, nil
 		})
 	assert.Nil(err)
-	assert.Equal(expectedCert, actualCert)
+	assert.Equal(expectedCert, actualCerts[0])
 
 	// verify fails
-	actualCert, err = getCertificate(addr, config,
+	actualCerts, err = getCertificate(addr, config,
 		func(reportBytes []byte) (ert.Report, error) {
 			assert.Equal(quote, reportBytes)
 			return ert.Report{}, errors.New("")
@@ -70,11 +70,11 @@ func TestGetCertificate(t *testing.T) {
 	assert.NotNil(err)
 
 	// invalid addr
-	actualCert, err = getCertificate("", nil, nil)
+	actualCerts, err = getCertificate("", nil, nil)
 	assert.NotNil(err)
 
 	// invalid hash
-	actualCert, err = getCertificate(addr, config,
+	actualCerts, err = getCertificate(addr, config,
 		func(reportBytes []byte) (ert.Report, error) {
 			assert.Equal(quote, reportBytes)
 			hashCopy := hash
@@ -90,7 +90,7 @@ func TestGetCertificate(t *testing.T) {
 	assert.NotNil(err)
 
 	// invalid security version
-	actualCert, err = getCertificate(addr, config,
+	actualCerts, err = getCertificate(addr, config,
 		func(reportBytes []byte) (ert.Report, error) {
 			assert.Equal(quote, reportBytes)
 			return ert.Report{
@@ -103,7 +103,7 @@ func TestGetCertificate(t *testing.T) {
 	assert.NotNil(err)
 
 	// newer security version
-	actualCert, err = getCertificate(addr, config,
+	actualCerts, err = getCertificate(addr, config,
 		func(reportBytes []byte) (ert.Report, error) {
 			assert.Equal(quote, reportBytes)
 			return ert.Report{
@@ -114,10 +114,10 @@ func TestGetCertificate(t *testing.T) {
 			}, nil
 		})
 	assert.Nil(err)
-	assert.Equal(expectedCert, actualCert)
+	assert.Equal(expectedCert, actualCerts[0])
 
 	// invalid product
-	actualCert, err = getCertificate(addr, config,
+	actualCerts, err = getCertificate(addr, config,
 		func(reportBytes []byte) (ert.Report, error) {
 			assert.Equal(quote, reportBytes)
 			return ert.Report{
@@ -130,7 +130,7 @@ func TestGetCertificate(t *testing.T) {
 	assert.NotNil(err)
 
 	// invalid signer
-	actualCert, err = getCertificate(addr, config,
+	actualCerts, err = getCertificate(addr, config,
 		func(reportBytes []byte) (ert.Report, error) {
 			assert.Equal(quote, reportBytes)
 			return ert.Report{

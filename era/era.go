@@ -28,44 +28,55 @@ var ErrEmptyQuote = errors.New("no quote received")
 
 // GetCertificate gets the TLS certificate from the server in PEM format. It performs remote attestation
 // to verify the certificate. A config file must be provided that contains the attestation metadata.
-func GetCertificate(host, configFilename string) (string, error) {
+func GetCertificate(host, configFilename string) ([]string, error) {
 	config, err := ioutil.ReadFile(configFilename)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return getCertificate(host, config, erthost.VerifyRemoteReport)
 }
 
 // InsecureGetCertificate gets the TLS certificate from the server in PEM format, but does not perform remote attestation.
-func InsecureGetCertificate(host string) (string, error) {
+func InsecureGetCertificate(host string) ([]string, error) {
 	return getCertificate(host, nil, nil)
 }
 
-func getCertificate(host string, config []byte, verifyRemoteReport func([]byte) (ert.Report, error)) (string, error) {
+func getCertificate(host string, config []byte, verifyRemoteReport func([]byte) (ert.Report, error)) ([]string, error) {
 	cert, quote, err := httpGetCertQuote(&tls.Config{InsecureSkipVerify: true}, host, "quote")
 	if err != nil {
-		return "", err
+		return nil, err
+	}
+
+	certs := make([]string, 0)
+	block, rest := pem.Decode([]byte(cert))
+	certs = append(certs, string(pem.EncodeToMemory(block)))
+
+	// If we get more than one certificate, append it to the slice
+	for len(rest) > 0 {
+		block, rest = pem.Decode([]byte(rest))
+		certs = append(certs, string(pem.EncodeToMemory(block)))
 	}
 
 	if verifyRemoteReport != nil {
 		if len(quote) == 0 {
-			return "", ErrEmptyQuote
+			return nil, ErrEmptyQuote
 		}
 
 		report, err := verifyRemoteReport(quote)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
-		block, _ := pem.Decode([]byte(cert))
+		// Use Root CA (last entry in certs) for attestation
+		block, _ := pem.Decode([]byte(certs[len(certs)-1]))
 		certRaw := block.Bytes
 
 		if err := verifyReport(report, certRaw, config); err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
-	return cert, nil
+	return certs, nil
 }
 
 func verifyReport(report ert.Report, cert []byte, config []byte) error {
