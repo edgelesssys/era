@@ -49,11 +49,17 @@ func getCertificate(host string, config []byte, verifyRemoteReport func([]byte) 
 
 	var certs []*pem.Block
 	block, rest := pem.Decode([]byte(cert))
+	if block == nil {
+		return nil, errors.New("could not parse certificate")
+	}
 	certs = append(certs, block)
 
 	// If we get more than one certificate, append it to the slice
 	for len(rest) > 0 {
 		block, rest = pem.Decode([]byte(rest))
+		if block == nil {
+			return nil, errors.New("could not parse certificate chain")
+		}
 		certs = append(certs, block)
 	}
 
