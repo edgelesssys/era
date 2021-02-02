@@ -23,6 +23,9 @@ type certQuoteResp struct {
 	Quote []byte
 }
 
+// ErrEmptyQuote defines an error type when no quote was received. This likely occurs when the host is running in OE Simulation mode.
+var ErrEmptyQuote = errors.New("no quote received")
+
 // GetCertificate gets the TLS certificate from the server in PEM format. It performs remote attestation
 // to verify the certificate. A config file must be provided that contains the attestation metadata.
 func GetCertificate(host, configFilename string) (string, error) {
@@ -46,9 +49,7 @@ func getCertificate(host string, config []byte, verifyRemoteReport func([]byte) 
 
 	if verifyRemoteReport != nil {
 		if len(quote) == 0 {
-			fmt.Println("ERROR: Received an empty quote from host. Is it running in OE Simulation mode?")
-			fmt.Println("For testing purposes, you can pass the parameter '-skip-quote' to skip remote attestation.")
-			return "", errors.New("no quote received")
+			return "", ErrEmptyQuote
 		}
 
 		report, err := verifyRemoteReport(quote)
