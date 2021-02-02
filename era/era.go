@@ -45,6 +45,11 @@ func getCertificate(host string, config []byte, verifyRemoteReport func([]byte) 
 	}
 
 	if verifyRemoteReport != nil {
+		if len(quote) == 0 {
+			fmt.Println("ERROR: Received an empty quote from host. Is it running in OE Simulation mode?")
+			fmt.Println("For testing purposes, you can pass the parameter '-skip-quote' to skip remote attestation.")
+			return "", errors.New("no quote received")
+		}
 
 		report, err := verifyRemoteReport(quote)
 		if err != nil {
