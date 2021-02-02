@@ -45,7 +45,7 @@ func TestGetCertificate(t *testing.T) {
 	// get certificate without quote validation
 	actualCerts, err := getCertificate(addr, nil, nil)
 	assert.Nil(err)
-	assert.Equal(expectedCert, actualCerts[0])
+	assert.EqualValues(expectedCert, pem.EncodeToMemory(actualCerts[0]))
 
 	// get certificate with quote validation
 	actualCerts, err = getCertificate(addr, config,
@@ -59,7 +59,7 @@ func TestGetCertificate(t *testing.T) {
 			}, nil
 		})
 	assert.Nil(err)
-	assert.Equal(expectedCert, actualCerts[0])
+	assert.EqualValues(expectedCert, pem.EncodeToMemory(actualCerts[0]))
 
 	// verify fails
 	actualCerts, err = getCertificate(addr, config,
@@ -114,7 +114,7 @@ func TestGetCertificate(t *testing.T) {
 			}, nil
 		})
 	assert.Nil(err)
-	assert.Equal(expectedCert, actualCerts[0])
+	assert.EqualValues(expectedCert, pem.EncodeToMemory(actualCerts[0]))
 
 	// invalid product
 	actualCerts, err = getCertificate(addr, config,

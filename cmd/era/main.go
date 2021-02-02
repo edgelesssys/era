@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/pem"
 	"errors"
 	"flag"
 	"fmt"
@@ -29,7 +30,7 @@ func main() {
 		return
 	}
 
-	var certs []string
+	var certs []*pem.Block
 	var err error
 	if *skipQuote {
 		fmt.Println("WARNING: Skipping quote verification")
@@ -52,7 +53,7 @@ func main() {
 
 	// Write root certificate as PEM to disk
 	if *outputRoot != "" {
-		if err := ioutil.WriteFile(*outputRoot, []byte(certs[len(certs)-1]), 0644); err != nil {
+		if err := ioutil.WriteFile(*outputRoot, pem.EncodeToMemory(certs[len(certs)-1]), 0644); err != nil {
 			panic(err)
 		}
 		fmt.Println("Root certificate writen to", *outputRoot)
@@ -61,7 +62,7 @@ func main() {
 	// Write intermediate certificate as PEM to disk
 	if *outputIntermediate != "" {
 		if len(certs) > 1 {
-			if err := ioutil.WriteFile(*outputIntermediate, []byte(certs[0]), 0644); err != nil {
+			if err := ioutil.WriteFile(*outputIntermediate, pem.EncodeToMemory(certs[0]), 0644); err != nil {
 				panic(err)
 			}
 			fmt.Println("Intermediate certificate writen to", *outputIntermediate)
@@ -73,12 +74,12 @@ func main() {
 	// Write certificate chain as PEM to disk
 	if *outputChain != "" {
 		if len(certs) > 1 {
-			var chain string
+			var chain []byte
 			for _, cert := range certs {
-				chain += cert
+				chain = append(chain, pem.EncodeToMemory(cert)...)
 			}
 
-			if err := ioutil.WriteFile(*outputChain, []byte(chain), 0644); err != nil {
+			if err := ioutil.WriteFile(*outputChain, chain, 0644); err != nil {
 				panic(err)
 			}
 
