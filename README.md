@@ -26,11 +26,11 @@ sudo apt -y install az-dcap-client
 ## Usage
 
 ```bash
-era -c config.json -h <IP:PORT> -o root.crt
+era -c config.json -h <IP:PORT> [-output-chain chain.pem] [-output-root root.pem] [-output-intermediate intermediate.pem]
 ```
 
 For testing without quote verification use:
 
 ```bash
-era -skip-quote -c config.json -h <IP:PORT> -o root.crt
+era -skip-quote -c config.json -h <IP:PORT> [-output-chain chain.pem] [-output-root root.pem] [-output-intermediate intermediate.pem]
 ```
