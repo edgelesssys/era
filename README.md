@@ -27,7 +27,7 @@ sudo -O /usr/local/bin/era https://github.com/edgelesssys/era/releases/latest/do
 sudo chmod +x /usr/local/bin/era
 ```
 
-*Note: On machines running Ubuntu, ~/.local/bin is only added to PATH when the directory exists by default and the user has logged in themselves again since it was created. Also, non-default shells such as `zsh` do not add this path by default. Therefore, if you receive `command not found: era` as an error message for a local user installation, either make sure ~/.local/bin was added to your PATH successfully, or simply use the global installation method.*
+*Note: On machines running Ubuntu, ~/.local/bin is only added to PATH when the directory exists when initializing your bash environment during login. You might need to re-login after creating the directory. Also, non-default shells such as `zsh` do not add this path by default. Therefore, if you receive `command not found: era` as an error message for a local user installation, either make sure ~/.local/bin was added to your PATH successfully or simply use the global installation method.*
 
 
 ## Build
