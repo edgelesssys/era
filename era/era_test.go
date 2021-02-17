@@ -18,6 +18,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type generalResponse struct {
+	Status  string      `json:"status"`
+	Data    interface{} `json:"data"`
+	Message string      `json:"message,omitempty"` // only used when status = "error"
+}
+
 func TestGetCertificate(t *testing.T) {
 	config := []byte(`
 {
@@ -148,6 +154,52 @@ func TestGetCertificate(t *testing.T) {
 	assert.NotNil(err)
 }
 
+func TestGetCertificateNewFormat(t *testing.T) {
+	config := []byte(`
+{
+	"securityVersion": 2,
+	"productID": 3,
+	"signerID": "ABCD"
+}
+`)
+
+	assert := assert.New(t)
+	var quote []byte
+	var cert string
+
+	server, addr, expectedCert := newServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal("/quote", r.RequestURI)
+		writeJSON(w, certQuoteResp{cert, quote})
+	}))
+
+	cert = expectedCert
+	block, _ := pem.Decode([]byte(cert))
+	certRaw := block.Bytes
+	hash := sha256.Sum256([]byte(certRaw))
+	quote = hash[:]
+
+	defer server.Close()
+
+	// get certificate without quote validation
+	actualCerts, err := getCertificate(addr, nil, nil)
+	assert.Nil(err)
+	assert.EqualValues(expectedCert, pem.EncodeToMemory(actualCerts[0]))
+
+	// get certificate with quote validation
+	actualCerts, err = getCertificate(addr, config,
+		func(reportBytes []byte) (ert.Report, error) {
+			assert.Equal(quote, reportBytes)
+			return ert.Report{
+				Data:            hash[:],
+				SecurityVersion: 2,
+				ProductID:       []byte{0x03, 0x00},
+				SignerID:        []byte{0xAB, 0xCD},
+			}, nil
+		})
+	assert.Nil(err)
+	assert.EqualValues(expectedCert, pem.EncodeToMemory(actualCerts[0]))
+}
+
 func TestGetMultipleCertificates(t *testing.T) {
 	config := []byte(`
 	{
@@ -234,4 +286,11 @@ func toPEM(certificate []byte) string {
 		panic("EncodeToMemory failed")
 	}
 	return string(result)
+}
+
+func writeJSON(w http.ResponseWriter, v interface{}) {
+	dataToReturn := generalResponse{Status: "success", Data: v}
+	if err := json.NewEncoder(w).Encode(dataToReturn); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }

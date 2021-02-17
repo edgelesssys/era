@@ -16,6 +16,7 @@ import (
 
 	"github.com/edgelesssys/ertgolib/ert"
 	"github.com/edgelesssys/ertgolib/erthost"
+	"github.com/tidwall/gjson"
 )
 
 type certQuoteResp struct {
@@ -151,10 +152,27 @@ func httpGetCertQuote(tlsConfig *tls.Config, host, path string) (string, []byte,
 	if err != nil {
 		return "", nil, err
 	}
+
+	/* Newer versions of Marblerun use a common JSON output format in which the quote
+	is embedded into "data" and the error messages are stored inside "message".
+	To keep compability with older versions, check if this block exists or
+	if we get the data back directly. */
+
 	if resp.StatusCode != http.StatusOK {
+		errorMessage := gjson.GetBytes(body, "message")
+		if errorMessage.Exists() {
+			return "", nil, errors.New(resp.Status + ": " + errorMessage.String())
+		}
 		return "", nil, errors.New(resp.Status + ": " + string(body))
 	}
-	err = json.Unmarshal(body, &certquote)
+
+	quoteData := gjson.GetBytes(body, "data")
+	if quoteData.Exists() {
+		err = json.Unmarshal([]byte(quoteData.String()), &certquote)
+	} else {
+		err = json.Unmarshal(body, &certquote)
+	}
+
 	if err != nil {
 		return "", nil, err
 	}
