@@ -100,17 +100,19 @@ func verifyReport(report ert.Report, cert []byte, config []byte) error {
 	if err := json.Unmarshal(config, &cfg); err != nil {
 		return err
 	}
-	if cfg.SecurityVersion == 0 {
-		return errors.New("missing securityVersion in config")
-	}
-	if cfg.ProductID == 0 {
-		return errors.New("missing productID in config")
+	if cfg.UniqueID == "" {
+		if cfg.SecurityVersion == 0 {
+			return errors.New("missing securityVersion in config")
+		}
+		if cfg.ProductID == 0 {
+			return errors.New("missing productID in config")
+		}
 	}
 
-	if report.SecurityVersion < cfg.SecurityVersion {
+	if cfg.SecurityVersion != 0 && report.SecurityVersion < cfg.SecurityVersion {
 		return errors.New("invalid security version")
 	}
-	if binary.LittleEndian.Uint16(report.ProductID) != cfg.ProductID {
+	if cfg.ProductID != 0 && binary.LittleEndian.Uint16(report.ProductID) != cfg.ProductID {
 		return errors.New("invalid product")
 	}
 	if err := verifyID(cfg.UniqueID, report.UniqueID, "unqiueID"); err != nil {
