@@ -217,6 +217,36 @@ func TestGetCertificate(t *testing.T) {
 			}, nil
 		})
 	assert.Error(err)
+
+	// debug enclave not allowed
+	_, err = getCertificate(addr, config,
+		func(reportBytes []byte) (ert.Report, error) {
+			assert.Equal(quote, reportBytes)
+			return ert.Report{
+				Data:     hash[:],
+				UniqueID: []byte{0xAB, 0xCD},
+				Debug:    true,
+			}, nil
+		})
+	assert.Error(err)
+
+	// debug enclave allowed
+	config = []byte(`
+{
+	"uniqueID": "ABCD",
+	"debug": true
+}
+`)
+	_, err = getCertificate(addr, config,
+		func(reportBytes []byte) (ert.Report, error) {
+			assert.Equal(quote, reportBytes)
+			return ert.Report{
+				Data:     hash[:],
+				UniqueID: []byte{0xAB, 0xCD},
+				Debug:    true,
+			}, nil
+		})
+	assert.NoError(err)
 }
 
 func TestGetCertificateNewFormat(t *testing.T) {
