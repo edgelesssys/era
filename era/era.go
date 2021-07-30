@@ -96,6 +96,7 @@ func verifyReport(report ert.Report, cert []byte, config []byte) error {
 		UniqueID        string
 		SignerID        string
 		ProductID       uint16
+		Debug           bool
 	}
 	if err := json.Unmarshal(config, &cfg); err != nil {
 		return err
@@ -114,6 +115,9 @@ func verifyReport(report ert.Report, cert []byte, config []byte) error {
 	}
 	if cfg.ProductID != 0 && binary.LittleEndian.Uint16(report.ProductID) != cfg.ProductID {
 		return errors.New("invalid product")
+	}
+	if report.Debug && !cfg.Debug {
+		return errors.New("debug enclave not allowed")
 	}
 	if err := verifyID(cfg.UniqueID, report.UniqueID, "unqiueID"); err != nil {
 		return err
