@@ -8,10 +8,9 @@ era performs Intel SGX DCAP verification for [Edgeless Products](https://www.edg
 Install the [Azure DCAP Client](https://github.com/microsoft/Azure-DCAP-Client).
 
 ```bash
-echo "deb [arch=amd64] https://packages.microsoft.com/ubuntu/18.04/prod bionic main" | sudo tee /etc/apt/sources.list.d/msprod.list
-wget -qO - https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-sudo apt update
-sudo apt -y install az-dcap-client
+wget -qO- https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add
+sudo add-apt-repository "deb [arch=amd64] https://packages.microsoft.com/ubuntu/`lsb_release -rs`/prod `lsb_release -cs` main"
+sudo apt install az-dcap-client
 ```
 
 ## Install
