@@ -55,7 +55,7 @@ func TestGetCertificate(t *testing.T) {
 
 	// get certificate without quote validation
 	actualCerts, err := getCertificate(addr, nil, nil)
-	assert.Nil(err)
+	assert.NoError(err)
 	assert.EqualValues(expectedCert, pem.EncodeToMemory(actualCerts[0]))
 
 	// get certificate with quote validation
@@ -69,7 +69,7 @@ func TestGetCertificate(t *testing.T) {
 				SignerID:        []byte{0xAB, 0xCD},
 			}, nil
 		})
-	assert.Nil(err)
+	assert.NoError(err)
 	assert.EqualValues(expectedCert, pem.EncodeToMemory(actualCerts[0]))
 
 	// verify fails
@@ -78,11 +78,11 @@ func TestGetCertificate(t *testing.T) {
 			assert.Equal(quote, reportBytes)
 			return ert.Report{}, errors.New("")
 		})
-	assert.NotNil(err)
+	assert.Error(err)
 
 	// invalid addr
 	actualCerts, err = getCertificate("", nil, nil)
-	assert.NotNil(err)
+	assert.Error(err)
 
 	// invalid hash
 	actualCerts, err = getCertificate(addr, config,
@@ -98,7 +98,7 @@ func TestGetCertificate(t *testing.T) {
 			}
 			return r, nil
 		})
-	assert.NotNil(err)
+	assert.Error(err)
 
 	// invalid security version
 	actualCerts, err = getCertificate(addr, config,
@@ -111,7 +111,7 @@ func TestGetCertificate(t *testing.T) {
 				SignerID:        []byte{0xAB, 0xCD},
 			}, nil
 		})
-	assert.NotNil(err)
+	assert.Error(err)
 
 	// newer security version
 	actualCerts, err = getCertificate(addr, config,
@@ -124,7 +124,7 @@ func TestGetCertificate(t *testing.T) {
 				SignerID:        []byte{0xAB, 0xCD},
 			}, nil
 		})
-	assert.Nil(err)
+	assert.NoError(err)
 	assert.EqualValues(expectedCert, pem.EncodeToMemory(actualCerts[0]))
 
 	// invalid product
@@ -138,7 +138,7 @@ func TestGetCertificate(t *testing.T) {
 				SignerID:        []byte{0xAB, 0xCD},
 			}, nil
 		})
-	assert.NotNil(err)
+	assert.Error(err)
 
 	// invalid signer
 	actualCerts, err = getCertificate(addr, config,
@@ -151,7 +151,72 @@ func TestGetCertificate(t *testing.T) {
 				SignerID:        []byte{0xAB, 0xCE},
 			}, nil
 		})
-	assert.NotNil(err)
+	assert.Error(err)
+
+	// missing productID
+	config = []byte(`
+{
+	"securityVersion": 2,
+	"signerID": "ABCD"
+}
+`)
+	_, err = getCertificate(addr, config,
+		func(reportBytes []byte) (ert.Report, error) {
+			assert.Equal(quote, reportBytes)
+			return ert.Report{
+				Data:            hash[:],
+				SecurityVersion: 2,
+				ProductID:       []byte{0x03, 0x00},
+				SignerID:        []byte{0xAB, 0xCD},
+			}, nil
+		})
+	assert.Error(err)
+
+	// missing securityVersion
+	config = []byte(`
+{
+	"productID": 3,
+	"signerID": "ABCD"
+}
+`)
+	_, err = getCertificate(addr, config,
+		func(reportBytes []byte) (ert.Report, error) {
+			assert.Equal(quote, reportBytes)
+			return ert.Report{
+				Data:            hash[:],
+				SecurityVersion: 2,
+				ProductID:       []byte{0x03, 0x00},
+				SignerID:        []byte{0xAB, 0xCD},
+			}, nil
+		})
+	assert.Error(err)
+
+	// uniqueID
+	config = []byte(`
+{
+	"uniqueID": "ABCD"
+}
+`)
+	_, err = getCertificate(addr, config,
+		func(reportBytes []byte) (ert.Report, error) {
+			assert.Equal(quote, reportBytes)
+			return ert.Report{
+				Data:     hash[:],
+				UniqueID: []byte{0xAB, 0xCD},
+			}, nil
+		})
+	assert.NoError(err)
+
+	// invalid uniqueID
+	_, err = getCertificate(addr, config,
+		func(reportBytes []byte) (ert.Report, error) {
+			assert.Equal(quote, reportBytes)
+			return ert.Report{
+				Data:     hash[:],
+				UniqueID: []byte{0xAB, 0xCE},
+			}, nil
+		})
+	assert.Error(err)
 }
 
 func TestGetCertificateNewFormat(t *testing.T) {
