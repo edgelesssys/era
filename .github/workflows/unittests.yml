@@ -15,9 +15,16 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-      with:
-        path: era
 
     - name: Test
-      run: ertgo test ./...
-      working-directory: era
+      run: go test ./...
+
+    - name: Build
+      run: go build
+      working-directory: cmd/era
+
+    - name: Build artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: era
+        path: cmd/era/era
