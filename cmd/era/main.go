@@ -56,7 +56,7 @@ func main() {
 		if err := ioutil.WriteFile(*outputRoot, pem.EncodeToMemory(certs[len(certs)-1]), 0644); err != nil {
 			panic(err)
 		}
-		fmt.Println("Root certificate writen to", *outputRoot)
+		fmt.Println("Root certificate written to", *outputRoot)
 	}
 
 	// Write intermediate certificate as PEM to disk
@@ -65,7 +65,7 @@ func main() {
 			if err := ioutil.WriteFile(*outputIntermediate, pem.EncodeToMemory(certs[0]), 0644); err != nil {
 				panic(err)
 			}
-			fmt.Println("Intermediate certificate writen to", *outputIntermediate)
+			fmt.Println("Intermediate certificate written to", *outputIntermediate)
 		} else {
 			fmt.Println("WARNING: No intermediate certificate received.")
 		}
@@ -83,7 +83,7 @@ func main() {
 				panic(err)
 			}
 
-			fmt.Println("Certificate chain writen to", *outputChain)
+			fmt.Println("Certificate chain written to", *outputChain)
 		} else {
 			fmt.Println("WARNING: Only received root certificate from host.")
 			fmt.Println("No chain will be saved on disk. Use '-output-root' for products using only a root CA as trust anchor")
