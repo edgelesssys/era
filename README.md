@@ -20,7 +20,11 @@ Alternatively to the triplet `SecurityVersion`, `ProductID`, and `SignerID`, era
 
 ## Requirements
 
-Install the [Azure DCAP Client](https://github.com/microsoft/Azure-DCAP-Client).
+To verify the genuinity of a service's attestation statement, era requires certain "collateral" information from Intel. The information is specific to the CPU the service is running on. 
+
+### Azure
+
+If your service is running in Azure, it is sufficient to install the [Azure DCAP Client](https://github.com/microsoft/Azure-DCAP-Client) alongside era on the client as follows: 
 
 ```bash
 wget -qO- https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add
@@ -28,7 +32,12 @@ sudo add-apt-repository "deb [arch=amd64] https://packages.microsoft.com/ubuntu/
 sudo apt install az-dcap-client
 ```
 
+### On-premises
+
+If your service is running on-prem, you need to run your own Provisioning Certificate Caching Service (PCCS) alongside it and install and configure corresponding DCAP libraries on the client. This is a general requirement of Intel SGX DCAP. Intel provides a corresponding [setup guide](https://software.intel.com/content/www/us/en/develop/articles/intel-software-guard-extensions-data-center-attestation-primitives-quick-install-guide.html).
+
 ## Install
+
 You can use our pre-built binaries to install era on your machine.
 ### For the current user
 ```bash
@@ -42,7 +51,6 @@ sudo chmod +x /usr/local/bin/era
 ```
 
 *Note*: On machines running Ubuntu, ~/.local/bin is only added to PATH when the directory exists when initializing your bash environment during login. You might need to re-login after creating the directory. Also, non-default shells such as `zsh` do not add this path by default. Therefore, if you receive `command not found: era` as an error message for a local user installation, either make sure ~/.local/bin was added to your PATH successfully or simply use the global installation method.
-
 
 ## Build
 To build era, [Edgeless RT](https://github.com/edgelesssys/edgelessrt) needs to be installed on your machine.
