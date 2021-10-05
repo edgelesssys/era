@@ -1,7 +1,35 @@
+# Copyright (C) 2021 Edgeless Systems GmbH. All rights reserved.
+# Copyright (C) 2011-2021 Intel Corporation. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#   * Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#   * Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in
+#     the documentation and/or other materials provided with the
+#     distribution.
+#   * Neither the name of Intel Corporation nor the names of its
+#     contributors may be used to endorse or promote products derived
+#     from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 FROM ubuntu:20.04 AS builder
 
 # DCAP version (github repo branch, tag or commit hash)
-ARG DCAP_VERSION=DCAP_1.10.3
+ARG DCAP_VERSION=DCAP_1.12
 
 # update and install packages
 RUN DEBIAN_FRONTEND=noninteractive \
@@ -23,10 +51,6 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 # clone DCAP repo
 RUN git clone https://github.com/intel/SGXDataCenterAttestationPrimitives.git -b ${DCAP_VERSION} --depth 1
 
-# remove conversion to hex
-RUN sed -i "s/result[['pckcrl']*] = Buffer.from(result[['pckcrl']*], 'utf8').toString('hex');/\/\/ EDIT: Removed line/" SGXDataCenterAttestationPrimitives/QuoteGeneration/pccs/services/pckcrlService.js
-RUN sed -i "s/crl = Buffer.from(crl, 'utf8').toString('hex');/\/\/ EDIT: Removed line/" SGXDataCenterAttestationPrimitives/QuoteGeneration/pccs/services/rootcacrlService.js
-
 # set PWD to PCKCertSelection dir
 WORKDIR /SGXDataCenterAttestationPrimitives/tools/PCKCertSelection/
 
@@ -39,18 +63,15 @@ RUN make && \
 # set PWD to PCCS dir
 WORKDIR /SGXDataCenterAttestationPrimitives/QuoteGeneration/pccs/
 
-# create cerificate
-RUN mkdir -p ./ssl_key && cd ssl_key && openssl genrsa -out private.pem 2048 && openssl req -new -key private.pem -out csr.pem -subj '/C=ES/ST=NRW/L=Bochum/O=ES/CN=es.com' && openssl x509 -req -days 365 -in csr.pem -signkey private.pem -out file.crt && rm -rf csr.pem && chmod 644 ./*
-
 # build pccs
-RUN npm config set proxy $http_proxy && \
-    npm config set http-proxy $http_proxy && \
-    npm config set https-proxy $https_proxy && \
-    npm config set engine-strict true && \
+RUN npm config set engine-strict true && \
     npm ci
 
 # build final image
 FROM ubuntu:20.04
+
+RUN apt-get update && \
+    apt-get install -y openssl
 
 ARG USER=pccs
 ARG UID=65333
