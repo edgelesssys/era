@@ -16,6 +16,7 @@ import (
 
 	"github.com/edgelesssys/ego/attestation"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type generalResponse struct {
@@ -25,228 +26,166 @@ type generalResponse struct {
 }
 
 func TestGetCertificate(t *testing.T) {
-	config := []byte(`
+	signerConfig := `
 {
 	"securityVersion": 2,
 	"productID": 3,
 	"signerID": "ABCD"
-}
-`)
+}`
+	signerReport := &attestation.Report{
+		SecurityVersion: 2,
+		ProductID:       []byte{0x03, 0x00},
+		SignerID:        []byte{0xAB, 0xCD},
+	}
 
-	assert := assert.New(t)
-	var quote []byte
-	var cert string
-
-	server, addr, expectedCert := newServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal("/quote", r.RequestURI)
-		jsn, err := json.Marshal(certQuoteResp{cert, quote})
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-		w.Write(jsn)
-	}))
-	cert = expectedCert
-	block, _ := pem.Decode([]byte(cert))
-	certRaw := block.Bytes
-	hash := sha256.Sum256([]byte(certRaw))
-	quote = hash[:]
-
-	defer server.Close()
-
-	// get certificate without quote validation
-	actualCerts, err := getCertificate(addr, nil, nil)
-	assert.NoError(err)
-	assert.EqualValues(expectedCert, pem.EncodeToMemory(actualCerts[0]))
-
-	// get certificate with quote validation
-	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (attestation.Report, error) {
-			assert.Equal(quote, reportBytes)
-			return attestation.Report{
-				Data:            hash[:],
+	testCases := map[string]struct {
+		config    string
+		report    *attestation.Report
+		verifyErr error
+		expectErr bool
+	}{
+		"get certificate without quote validation": {},
+		"get certificate with quote validation": {
+			config: signerConfig,
+			report: signerReport,
+		},
+		"verify fails": {
+			config:    signerConfig,
+			report:    signerReport,
+			verifyErr: errors.New("failed"),
+			expectErr: true,
+		},
+		"invalid hash": {
+			config: signerConfig,
+			report: &attestation.Report{
+				Data:            make([]byte, 64),
 				SecurityVersion: 2,
 				ProductID:       []byte{0x03, 0x00},
 				SignerID:        []byte{0xAB, 0xCD},
-			}, nil
-		})
-	assert.NoError(err)
-	assert.EqualValues(expectedCert, pem.EncodeToMemory(actualCerts[0]))
-
-	// verify fails
-	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (attestation.Report, error) {
-			assert.Equal(quote, reportBytes)
-			return attestation.Report{}, errors.New("")
-		})
-	assert.Error(err)
-
-	// invalid addr
-	actualCerts, err = getCertificate("", nil, nil)
-	assert.Error(err)
-
-	// invalid hash
-	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (attestation.Report, error) {
-			assert.Equal(quote, reportBytes)
-			hashCopy := hash
-			hashCopy[2] ^= 0xFF
-			r := attestation.Report{
-				Data:            hashCopy[:],
-				SecurityVersion: 2,
-				ProductID:       []byte{0x03, 0x00},
-				SignerID:        []byte{0xAB, 0xCD},
-			}
-			return r, nil
-		})
-	assert.Error(err)
-
-	// invalid security version
-	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (attestation.Report, error) {
-			assert.Equal(quote, reportBytes)
-			return attestation.Report{
-				Data:            hash[:],
+			},
+			expectErr: true,
+		},
+		"invalid security version": {
+			config: signerConfig,
+			report: &attestation.Report{
 				SecurityVersion: 1,
 				ProductID:       []byte{0x03, 0x00},
 				SignerID:        []byte{0xAB, 0xCD},
-			}, nil
-		})
-	assert.Error(err)
-
-	// newer security version
-	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (attestation.Report, error) {
-			assert.Equal(quote, reportBytes)
-			return attestation.Report{
-				Data:            hash[:],
+			},
+			expectErr: true,
+		},
+		"newer security version": {
+			config: signerConfig,
+			report: &attestation.Report{
 				SecurityVersion: 3,
 				ProductID:       []byte{0x03, 0x00},
 				SignerID:        []byte{0xAB, 0xCD},
-			}, nil
-		})
-	assert.NoError(err)
-	assert.EqualValues(expectedCert, pem.EncodeToMemory(actualCerts[0]))
-
-	// invalid product
-	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (attestation.Report, error) {
-			assert.Equal(quote, reportBytes)
-			return attestation.Report{
-				Data:            hash[:],
+			},
+		},
+		"invalid product": {
+			config: signerConfig,
+			report: &attestation.Report{
 				SecurityVersion: 2,
 				ProductID:       []byte{0x04, 0x00},
 				SignerID:        []byte{0xAB, 0xCD},
-			}, nil
-		})
-	assert.Error(err)
-
-	// invalid signer
-	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (attestation.Report, error) {
-			assert.Equal(quote, reportBytes)
-			return attestation.Report{
-				Data:            hash[:],
+			},
+			expectErr: true,
+		},
+		"invalid signer": {
+			config: signerConfig,
+			report: &attestation.Report{
 				SecurityVersion: 2,
 				ProductID:       []byte{0x03, 0x00},
 				SignerID:        []byte{0xAB, 0xCE},
-			}, nil
-		})
-	assert.Error(err)
-
-	// missing productID
-	config = []byte(`
-{
-	"securityVersion": 2,
-	"signerID": "ABCD"
-}
-`)
-	_, err = getCertificate(addr, config,
-		func(reportBytes []byte) (attestation.Report, error) {
-			assert.Equal(quote, reportBytes)
-			return attestation.Report{
-				Data:            hash[:],
-				SecurityVersion: 2,
-				ProductID:       []byte{0x03, 0x00},
-				SignerID:        []byte{0xAB, 0xCD},
-			}, nil
-		})
-	assert.Error(err)
-
-	// missing securityVersion
-	config = []byte(`
-{
-	"productID": 3,
-	"signerID": "ABCD"
-}
-`)
-	_, err = getCertificate(addr, config,
-		func(reportBytes []byte) (attestation.Report, error) {
-			assert.Equal(quote, reportBytes)
-			return attestation.Report{
-				Data:            hash[:],
-				SecurityVersion: 2,
-				ProductID:       []byte{0x03, 0x00},
-				SignerID:        []byte{0xAB, 0xCD},
-			}, nil
-		})
-	assert.Error(err)
-
-	// uniqueID
-	config = []byte(`
-{
-	"uniqueID": "ABCD"
-}
-`)
-	_, err = getCertificate(addr, config,
-		func(reportBytes []byte) (attestation.Report, error) {
-			assert.Equal(quote, reportBytes)
-			return attestation.Report{
-				Data:     hash[:],
+			},
+			expectErr: true,
+		},
+		"missing productID": {
+			config:    `{"securityVersion":2, "signerID":"ABCD"}`,
+			report:    signerReport,
+			expectErr: true,
+		},
+		"missing securityVersion": {
+			config:    `{"productID":3, "signerID":"ABCD"}`,
+			report:    signerReport,
+			expectErr: true,
+		},
+		"uniqeID": {
+			config: `{"uniqueID":"ABCD"}`,
+			report: &attestation.Report{
 				UniqueID: []byte{0xAB, 0xCD},
-			}, nil
-		})
-	assert.NoError(err)
-
-	// invalid uniqueID
-	_, err = getCertificate(addr, config,
-		func(reportBytes []byte) (attestation.Report, error) {
-			assert.Equal(quote, reportBytes)
-			return attestation.Report{
-				Data:     hash[:],
+			},
+		},
+		"invalid uniqeID": {
+			config: `{"uniqueID":"ABCD"}`,
+			report: &attestation.Report{
 				UniqueID: []byte{0xAB, 0xCE},
-			}, nil
-		})
-	assert.Error(err)
-
-	// debug enclave not allowed
-	_, err = getCertificate(addr, config,
-		func(reportBytes []byte) (attestation.Report, error) {
-			assert.Equal(quote, reportBytes)
-			return attestation.Report{
-				Data:     hash[:],
+			},
+			expectErr: true,
+		},
+		"debug enclave not allowed": {
+			config: `{"uniqueID":"ABCD"}`,
+			report: &attestation.Report{
 				UniqueID: []byte{0xAB, 0xCD},
 				Debug:    true,
-			}, nil
-		})
-	assert.Error(err)
-
-	// debug enclave allowed
-	config = []byte(`
-{
-	"uniqueID": "ABCD",
-	"debug": true
-}
-`)
-	_, err = getCertificate(addr, config,
-		func(reportBytes []byte) (attestation.Report, error) {
-			assert.Equal(quote, reportBytes)
-			return attestation.Report{
-				Data:     hash[:],
+			},
+			expectErr: true,
+		},
+		"debug enclave allowed": {
+			config: `{"uniqueID":"ABCD", "debug":true}`,
+			report: &attestation.Report{
 				UniqueID: []byte{0xAB, 0xCD},
 				Debug:    true,
-			}, nil
+			},
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			assert := assert.New(t)
+			require := require.New(t)
+
+			var quote []byte
+			var cert string
+
+			server, addr, expectedCert := newServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal("/quote", r.RequestURI)
+				jsn, err := json.Marshal(certQuoteResp{cert, quote})
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
+				w.Write(jsn)
+			}))
+			defer server.Close()
+
+			cert = expectedCert
+			block, _ := pem.Decode([]byte(cert))
+			certRaw := block.Bytes
+			hash := sha256.Sum256([]byte(certRaw))
+			quote = hash[:]
+
+			var verify verifyFunc
+			if tc.report != nil {
+				verify = func(reportBytes []byte) (attestation.Report, error) {
+					assert.Equal(quote, reportBytes)
+					report := *tc.report
+					if report.Data == nil {
+						report.Data = hash[:]
+					}
+					return report, tc.verifyErr
+				}
+			}
+
+			actualCerts, err := getCertificate(addr, []byte(tc.config), verify)
+			if tc.expectErr {
+				assert.Error(err)
+				return
+			}
+			require.NoError(err)
+
+			assert.EqualValues(expectedCert, pem.EncodeToMemory(actualCerts[0]))
 		})
-	assert.NoError(err)
+	}
 }
 
 func TestGetCertificateNewFormat(t *testing.T) {

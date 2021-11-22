@@ -42,7 +42,9 @@ func InsecureGetCertificate(host string) ([]*pem.Block, error) {
 	return getCertificate(host, nil, nil)
 }
 
-func getCertificate(host string, config []byte, verifyRemoteReport func([]byte) (attestation.Report, error)) ([]*pem.Block, error) {
+type verifyFunc func([]byte) (attestation.Report, error)
+
+func getCertificate(host string, config []byte, verifyRemoteReport verifyFunc) ([]*pem.Block, error) {
 	cert, quote, err := httpGetCertQuote(&tls.Config{InsecureSkipVerify: true}, host, "quote")
 	if err != nil {
 		return nil, err
