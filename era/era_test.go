@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edgelesssys/ertgolib/ert"
+	"github.com/edgelesssys/ego/attestation"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -60,9 +60,9 @@ func TestGetCertificate(t *testing.T) {
 
 	// get certificate with quote validation
 	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
-			return ert.Report{
+			return attestation.Report{
 				Data:            hash[:],
 				SecurityVersion: 2,
 				ProductID:       []byte{0x03, 0x00},
@@ -74,9 +74,9 @@ func TestGetCertificate(t *testing.T) {
 
 	// verify fails
 	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
-			return ert.Report{}, errors.New("")
+			return attestation.Report{}, errors.New("")
 		})
 	assert.Error(err)
 
@@ -86,11 +86,11 @@ func TestGetCertificate(t *testing.T) {
 
 	// invalid hash
 	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
 			hashCopy := hash
 			hashCopy[2] ^= 0xFF
-			r := ert.Report{
+			r := attestation.Report{
 				Data:            hashCopy[:],
 				SecurityVersion: 2,
 				ProductID:       []byte{0x03, 0x00},
@@ -102,9 +102,9 @@ func TestGetCertificate(t *testing.T) {
 
 	// invalid security version
 	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
-			return ert.Report{
+			return attestation.Report{
 				Data:            hash[:],
 				SecurityVersion: 1,
 				ProductID:       []byte{0x03, 0x00},
@@ -115,9 +115,9 @@ func TestGetCertificate(t *testing.T) {
 
 	// newer security version
 	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
-			return ert.Report{
+			return attestation.Report{
 				Data:            hash[:],
 				SecurityVersion: 3,
 				ProductID:       []byte{0x03, 0x00},
@@ -129,9 +129,9 @@ func TestGetCertificate(t *testing.T) {
 
 	// invalid product
 	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
-			return ert.Report{
+			return attestation.Report{
 				Data:            hash[:],
 				SecurityVersion: 2,
 				ProductID:       []byte{0x04, 0x00},
@@ -142,9 +142,9 @@ func TestGetCertificate(t *testing.T) {
 
 	// invalid signer
 	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
-			return ert.Report{
+			return attestation.Report{
 				Data:            hash[:],
 				SecurityVersion: 2,
 				ProductID:       []byte{0x03, 0x00},
@@ -161,9 +161,9 @@ func TestGetCertificate(t *testing.T) {
 }
 `)
 	_, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
-			return ert.Report{
+			return attestation.Report{
 				Data:            hash[:],
 				SecurityVersion: 2,
 				ProductID:       []byte{0x03, 0x00},
@@ -180,9 +180,9 @@ func TestGetCertificate(t *testing.T) {
 }
 `)
 	_, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
-			return ert.Report{
+			return attestation.Report{
 				Data:            hash[:],
 				SecurityVersion: 2,
 				ProductID:       []byte{0x03, 0x00},
@@ -198,9 +198,9 @@ func TestGetCertificate(t *testing.T) {
 }
 `)
 	_, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
-			return ert.Report{
+			return attestation.Report{
 				Data:     hash[:],
 				UniqueID: []byte{0xAB, 0xCD},
 			}, nil
@@ -209,9 +209,9 @@ func TestGetCertificate(t *testing.T) {
 
 	// invalid uniqueID
 	_, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
-			return ert.Report{
+			return attestation.Report{
 				Data:     hash[:],
 				UniqueID: []byte{0xAB, 0xCE},
 			}, nil
@@ -220,9 +220,9 @@ func TestGetCertificate(t *testing.T) {
 
 	// debug enclave not allowed
 	_, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
-			return ert.Report{
+			return attestation.Report{
 				Data:     hash[:],
 				UniqueID: []byte{0xAB, 0xCD},
 				Debug:    true,
@@ -238,9 +238,9 @@ func TestGetCertificate(t *testing.T) {
 }
 `)
 	_, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
-			return ert.Report{
+			return attestation.Report{
 				Data:     hash[:],
 				UniqueID: []byte{0xAB, 0xCD},
 				Debug:    true,
@@ -282,9 +282,9 @@ func TestGetCertificateNewFormat(t *testing.T) {
 
 	// get certificate with quote validation
 	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
-			return ert.Report{
+			return attestation.Report{
 				Data:            hash[:],
 				SecurityVersion: 2,
 				ProductID:       []byte{0x03, 0x00},
@@ -332,9 +332,9 @@ func TestGetMultipleCertificates(t *testing.T) {
 
 	// get certificates with quote validation
 	actualCerts, err = getCertificate(addr, config,
-		func(reportBytes []byte) (ert.Report, error) {
+		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
-			return ert.Report{
+			return attestation.Report{
 				Data:            hash[:],
 				SecurityVersion: 2,
 				ProductID:       []byte{0x03, 0x00},

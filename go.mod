@@ -1,9 +1,9 @@
 module github.com/edgelesssys/era
 
-go 1.15
+go 1.16
 
 require (
-	github.com/edgelesssys/ertgolib v0.1.1
-	github.com/stretchr/testify v1.6.1
-	github.com/tidwall/gjson v1.9.3
+	github.com/edgelesssys/ego v0.3.4
+	github.com/stretchr/testify v1.7.0
+	github.com/tidwall/gjson v1.11.0
 )
