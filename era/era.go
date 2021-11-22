@@ -14,8 +14,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/edgelesssys/ertgolib/ert"
-	"github.com/edgelesssys/ertgolib/erthost"
+	"github.com/edgelesssys/ego/attestation"
+	"github.com/edgelesssys/ego/eclient"
 	"github.com/tidwall/gjson"
 )
 
@@ -34,7 +34,7 @@ func GetCertificate(host, configFilename string) ([]*pem.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	return getCertificate(host, config, erthost.VerifyRemoteReport)
+	return getCertificate(host, config, eclient.VerifyRemoteReport)
 }
 
 // InsecureGetCertificate gets the TLS certificate from the server in PEM format, but does not perform remote attestation.
@@ -42,7 +42,7 @@ func InsecureGetCertificate(host string) ([]*pem.Block, error) {
 	return getCertificate(host, nil, nil)
 }
 
-func getCertificate(host string, config []byte, verifyRemoteReport func([]byte) (ert.Report, error)) ([]*pem.Block, error) {
+func getCertificate(host string, config []byte, verifyRemoteReport func([]byte) (attestation.Report, error)) ([]*pem.Block, error) {
 	cert, quote, err := httpGetCertQuote(&tls.Config{InsecureSkipVerify: true}, host, "quote")
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func getCertificate(host string, config []byte, verifyRemoteReport func([]byte) 
 	return certs, nil
 }
 
-func verifyReport(report ert.Report, cert []byte, config []byte) error {
+func verifyReport(report attestation.Report, cert []byte, config []byte) error {
 	hash := sha256.Sum256(cert)
 	if !bytes.Equal(report.Data[:len(hash)], hash[:]) {
 		return errors.New("report data does not match the certificate's hash")
