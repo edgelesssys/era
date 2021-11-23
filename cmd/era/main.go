@@ -6,9 +6,16 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"strings"
 
+	"github.com/edgelesssys/ego/attestation"
+	"github.com/edgelesssys/ego/attestation/tcbstatus"
 	"github.com/edgelesssys/era/era"
+	"github.com/edgelesssys/era/util"
 )
+
+const flagNameAllowTcbStatus = "allow-tcb-status"
 
 func main() {
 	host := flag.String("h", "", "host address, required")
@@ -17,6 +24,8 @@ func main() {
 	outputIntermediate := flag.String("output-intermediate", "", "output file for intermediate certificate")
 	outputChain := flag.String("output-chain", "", "output file for certificate chain")
 	skipQuote := flag.Bool("skip-quote", false, "skip quote verification")
+	allowTcbStatus := flag.String(flagNameAllowTcbStatus, "",
+		"comma-separated list of allowed tcb status, e.g., -"+flagNameAllowTcbStatus+"=ConfigurationNeeded,ConfigurationAndSWHardeningNeeded")
 	flag.Parse()
 
 	var noOutputGiven bool
@@ -36,7 +45,14 @@ func main() {
 		fmt.Println("WARNING: Skipping quote verification")
 		certs, err = era.InsecureGetCertificate(*host)
 	} else {
-		certs, err = era.GetCertificate(*host, *configFilename)
+		var tcbStatus tcbstatus.Status
+		certs, tcbStatus, err = era.GetCertificate(*host, *configFilename)
+		if err == attestation.ErrTCBLevelInvalid {
+			if !checkTcbStatus(tcbStatus, *allowTcbStatus) {
+				os.Exit(1)
+			}
+			err = nil
+		}
 	}
 
 	if err != nil {
@@ -89,4 +105,14 @@ func main() {
 			fmt.Println("No chain will be saved on disk. Use '-output-root' for products using only a root CA as trust anchor")
 		}
 	}
+}
+
+func checkTcbStatus(status tcbstatus.Status, allowStatus string) bool {
+	allowed := strings.Split(strings.ToLower(allowStatus), ",")
+	fmt.Println("WARNING: TCB status is", status)
+	if util.StringSliceContains(allowed, strings.ToLower(status.String())) {
+		return true
+	}
+	fmt.Printf("%v\nUse -%v=%v to allow this status.\n", tcbstatus.Explain(status), flagNameAllowTcbStatus, status)
+	return false
 }

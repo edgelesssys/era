@@ -15,6 +15,7 @@ import (
 	"net/url"
 
 	"github.com/edgelesssys/ego/attestation"
+	"github.com/edgelesssys/ego/attestation/tcbstatus"
 	"github.com/edgelesssys/ego/eclient"
 	"github.com/tidwall/gjson"
 )
@@ -29,31 +30,32 @@ var ErrEmptyQuote = errors.New("no quote received")
 
 // GetCertificate gets the TLS certificate from the server in PEM format. It performs remote attestation
 // to verify the certificate. A config file must be provided that contains the attestation metadata.
-func GetCertificate(host, configFilename string) ([]*pem.Block, error) {
+func GetCertificate(host, configFilename string) ([]*pem.Block, tcbstatus.Status, error) {
 	config, err := ioutil.ReadFile(configFilename)
 	if err != nil {
-		return nil, err
+		return nil, tcbstatus.Unknown, err
 	}
 	return getCertificate(host, config, eclient.VerifyRemoteReport)
 }
 
 // InsecureGetCertificate gets the TLS certificate from the server in PEM format, but does not perform remote attestation.
 func InsecureGetCertificate(host string) ([]*pem.Block, error) {
-	return getCertificate(host, nil, nil)
+	certs, _, err := getCertificate(host, nil, nil)
+	return certs, err
 }
 
 type verifyFunc func([]byte) (attestation.Report, error)
 
-func getCertificate(host string, config []byte, verifyRemoteReport verifyFunc) ([]*pem.Block, error) {
+func getCertificate(host string, config []byte, verifyRemoteReport verifyFunc) ([]*pem.Block, tcbstatus.Status, error) {
 	cert, quote, err := httpGetCertQuote(&tls.Config{InsecureSkipVerify: true}, host, "quote")
 	if err != nil {
-		return nil, err
+		return nil, tcbstatus.Unknown, err
 	}
 
 	var certs []*pem.Block
 	block, rest := pem.Decode([]byte(cert))
 	if block == nil {
-		return nil, errors.New("could not parse certificate")
+		return nil, tcbstatus.Unknown, errors.New("could not parse certificate")
 	}
 	certs = append(certs, block)
 
@@ -61,30 +63,32 @@ func getCertificate(host string, config []byte, verifyRemoteReport verifyFunc) (
 	for len(rest) > 0 {
 		block, rest = pem.Decode([]byte(rest))
 		if block == nil {
-			return nil, errors.New("could not parse certificate chain")
+			return nil, tcbstatus.Unknown, errors.New("could not parse certificate chain")
 		}
 		certs = append(certs, block)
 	}
 
-	if verifyRemoteReport != nil {
-		if len(quote) == 0 {
-			return nil, ErrEmptyQuote
-		}
-
-		report, err := verifyRemoteReport(quote)
-		if err != nil {
-			return nil, err
-		}
-
-		// Use Root CA (last entry in certs) for attestation
-		certRaw := certs[len(certs)-1].Bytes
-
-		if err := verifyReport(report, certRaw, config); err != nil {
-			return nil, err
-		}
+	if verifyRemoteReport == nil {
+		return certs, tcbstatus.Unknown, nil
 	}
 
-	return certs, nil
+	if len(quote) == 0 {
+		return nil, tcbstatus.Unknown, ErrEmptyQuote
+	}
+
+	report, verifyErr := verifyRemoteReport(quote)
+	if verifyErr != nil && verifyErr != attestation.ErrTCBLevelInvalid {
+		return nil, tcbstatus.Unknown, verifyErr
+	}
+
+	// Use Root CA (last entry in certs) for attestation
+	certRaw := certs[len(certs)-1].Bytes
+
+	if err := verifyReport(report, certRaw, config); err != nil {
+		return nil, tcbstatus.Unknown, err
+	}
+
+	return certs, report.TCBStatus, verifyErr
 }
 
 func verifyReport(report attestation.Report, cert []byte, config []byte) error {
