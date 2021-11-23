@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/edgelesssys/ego/attestation"
+	"github.com/edgelesssys/ego/attestation/tcbstatus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,10 +40,12 @@ func TestGetCertificate(t *testing.T) {
 	}
 
 	testCases := map[string]struct {
-		config    string
-		report    *attestation.Report
-		verifyErr error
-		expectErr bool
+		config       string
+		report       *attestation.Report
+		verifyErr    error
+		expectErr    bool
+		expectTcbErr bool
+		tcbStatus    tcbstatus.Status
 	}{
 		"get certificate without quote validation": {},
 		"get certificate with quote validation": {
@@ -138,6 +141,29 @@ func TestGetCertificate(t *testing.T) {
 				Debug:    true,
 			},
 		},
+		"tcb error": {
+			config: signerConfig,
+			report: &attestation.Report{
+				SecurityVersion: 2,
+				ProductID:       []byte{0x03, 0x00},
+				SignerID:        []byte{0xAB, 0xCD},
+				TCBStatus:       tcbstatus.OutOfDate,
+			},
+			verifyErr:    attestation.ErrTCBLevelInvalid,
+			expectTcbErr: true,
+			tcbStatus:    tcbstatus.OutOfDate,
+		},
+		"tcb error and invalid product": {
+			config: signerConfig,
+			report: &attestation.Report{
+				SecurityVersion: 2,
+				ProductID:       []byte{0x04, 0x00},
+				SignerID:        []byte{0xAB, 0xCD},
+				TCBStatus:       tcbstatus.OutOfDate,
+			},
+			verifyErr: attestation.ErrTCBLevelInvalid,
+			expectErr: true,
+		},
 	}
 
 	for name, tc := range testCases {
@@ -176,12 +202,17 @@ func TestGetCertificate(t *testing.T) {
 				}
 			}
 
-			actualCerts, err := getCertificate(addr, []byte(tc.config), verify)
-			if tc.expectErr {
+			actualCerts, tcbStatus, err := getCertificate(addr, []byte(tc.config), verify)
+			if tc.expectTcbErr {
+				require.Equal(attestation.ErrTCBLevelInvalid, err)
+				assert.Equal(tc.tcbStatus, tcbStatus)
+			} else if tc.expectErr {
 				assert.Error(err)
+				assert.NotEqual(attestation.ErrTCBLevelInvalid, err)
 				return
+			} else {
+				require.NoError(err)
 			}
-			require.NoError(err)
 
 			assert.EqualValues(expectedCert, pem.EncodeToMemory(actualCerts[0]))
 		})
@@ -215,12 +246,12 @@ func TestGetCertificateNewFormat(t *testing.T) {
 	defer server.Close()
 
 	// get certificate without quote validation
-	actualCerts, err := getCertificate(addr, nil, nil)
+	actualCerts, _, err := getCertificate(addr, nil, nil)
 	assert.Nil(err)
 	assert.EqualValues(expectedCert, pem.EncodeToMemory(actualCerts[0]))
 
 	// get certificate with quote validation
-	actualCerts, err = getCertificate(addr, config,
+	actualCerts, _, err = getCertificate(addr, config,
 		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
 			return attestation.Report{
@@ -264,13 +295,13 @@ func TestGetMultipleCertificates(t *testing.T) {
 	defer server.Close()
 
 	// get certificates without quote validation
-	actualCerts, err := getCertificate(addr, nil, nil)
+	actualCerts, _, err := getCertificate(addr, nil, nil)
 	assert.Nil(err)
 	assert.EqualValues(expectedCerts[0], pem.EncodeToMemory(actualCerts[0]))
 	assert.EqualValues(expectedCerts[1], pem.EncodeToMemory(actualCerts[1]))
 
 	// get certificates with quote validation
-	actualCerts, err = getCertificate(addr, config,
+	actualCerts, _, err = getCertificate(addr, config,
 		func(reportBytes []byte) (attestation.Report, error) {
 			assert.Equal(quote, reportBytes)
 			return attestation.Report{
