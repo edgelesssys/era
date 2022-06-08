@@ -71,6 +71,14 @@ For testing without quote verification use:
 era -skip-quote -c config.json -h <IP:PORT> [-output-chain chain.pem] [-output-root root.pem] [-output-intermediate intermediate.pem]
 ```
 
+## Troubleshooting
+
+### OE_QUOTE_PROVIDER_CALL_ERROR
+
+If you see this error when using the default quote provider, set `use_secure_cert` to `false` in `/etc/sgx_default_qcnl.conf`.
+This instructs the quote provider to accept a self-signed certificate of the PCCS.
+It doesn't affect the security of the remote attestation process itself.
+
 ## Protocol
 
 The era protocol is simple. In a nutshell, an era-compatible service exposes the `/quote` endpoint via HTTPS. The endpoint returns the service's X.509 certificate alongside a corresponding Intel SGX DCAP attestation statement, also known as "quote", in JSON format. The format corresponds to the following Go struct:
