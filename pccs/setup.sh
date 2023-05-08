@@ -40,4 +40,4 @@ sed -i "s/\"AdminTokenHash\"[ ]*:[ ]*\"\",/\"AdminTokenHash\": \"$adminhash\",/"
 sed -i 's/\"hosts\"[ ]*:[ ]*\"127.0.0.1\",/\"hosts\": \"0.0.0.0\",/' default.json
 
 cd ..
-/usr/bin/node -r esm /opt/intel/pccs/pccs_server.js
+/usr/bin/node /opt/intel/pccs/pccs_server.js
